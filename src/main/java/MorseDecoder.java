@@ -53,6 +53,12 @@ public class MorseDecoder {
 
         double[] sampleBuffer = new double[BIN_SIZE * inputFile.getNumChannels()];
         for (int binIndex = 0; binIndex < totalBinCount; binIndex++) {
+            inputFile.readFrames(sampleBuffer, BIN_SIZE);
+            double sum = 0;
+            for (int j = 0; j < BIN_SIZE * inputFile.getNumChannels(); j++) {
+                sum += sampleBuffer[j];
+            }
+            returnBuffer[binIndex] = sum;
             // Get the right number of samples from the inputFile
             // Sum all the samples together and store them in the returnBuffer
         }
@@ -60,10 +66,10 @@ public class MorseDecoder {
     }
 
     /** Power threshold for power or no power. You may need to modify this value. */
-    private static final double POWER_THRESHOLD = 10;
+    private static final double POWER_THRESHOLD = 0.4;
 
     /** Bin threshold for dots or dashes. Related to BIN_SIZE. You may need to modify this value. */
-    private static final int DASH_BIN_COUNT = 8;
+    private static final int DASH_BIN_COUNT = 2;
 
     /**
      * Convert power measurements to dots, dashes, and spaces.
@@ -77,6 +83,39 @@ public class MorseDecoder {
      * @return the Morse code string of dots, dashes, and spaces
      */
     private static String powerToDotDash(final double[] powerMeasurements) {
+        int dashCount = 1;
+        String result = "";
+        boolean overPower;
+        if (powerMeasurements[0] > POWER_THRESHOLD) {
+            overPower = true;
+        } else {
+            overPower = false;
+        }
+        for (int i = 1; i < powerMeasurements.length; i++) {
+            if (powerMeasurements[i] >= POWER_THRESHOLD && overPower) {
+                overPower = true;
+                dashCount++;
+            } else if (powerMeasurements[i] >= POWER_THRESHOLD && !overPower) {
+                if (dashCount < DASH_BIN_COUNT) {
+                    result += "";
+                } else {
+                    result += " ";
+                }
+                dashCount = 1;
+                overPower = true;
+            } else if (powerMeasurements[i] < POWER_THRESHOLD && !overPower) {
+                overPower = false;
+                dashCount++;
+            } else if (powerMeasurements[i] < POWER_THRESHOLD && overPower) {
+                if (dashCount < DASH_BIN_COUNT) {
+                    result += ".";
+                } else {
+                    result += "-";
+                }
+                dashCount = 1;
+                overPower = false;
+            }
+        }
         /*
          * There are four conditions to handle. Symbols should only be output when you see
          * transitions. You will also have to store how much power or silence you have seen.
@@ -87,7 +126,7 @@ public class MorseDecoder {
         // else if issilence and wassilence
         // else if issilence and not wassilence
 
-        return "";
+        return result;
     }
 
     /**
